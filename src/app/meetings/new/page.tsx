@@ -35,7 +35,7 @@ export default function NewMeetingPage() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>("");
-  const [status, setStatus] = useState<string>("按下開始錄音，或直接上傳音檔。");
+  const [status, setStatus] = useState<string>("Click start recording, or upload an audio file.");
   const [error, setError] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -80,7 +80,7 @@ export default function NewMeetingPage() {
           if (previousUrl) URL.revokeObjectURL(previousUrl);
           return URL.createObjectURL(blob);
         });
-        setStatus("錄音完成，可以先播放確認，再按分析。");
+        setStatus("Recording finished. You can preview the audio, then start analysis.");
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       };
@@ -95,14 +95,14 @@ export default function NewMeetingPage() {
       setSeconds(0);
       setIsRecording(true);
       setIsPaused(false);
-      setStatus("正在錄音中...");
+      setStatus("Recording in progress...");
 
       timerRef.current = window.setInterval(() => {
         setSeconds((current) => current + 1);
       }, 1000);
     } catch (recordingError) {
-      setError(recordingError instanceof Error ? recordingError.message : "無法啟動錄音");
-      setStatus("錄音啟動失敗，請檢查麥克風權限。");
+      setError(recordingError instanceof Error ? recordingError.message : "Unable to start recording");
+      setStatus("Could not start recording. Please check microphone permissions.");
     }
   }
 
@@ -113,7 +113,7 @@ export default function NewMeetingPage() {
     if (recorder.state === "recording") {
       recorder.pause();
       setIsPaused(true);
-      setStatus("錄音已暫停。");
+      setStatus("Recording paused.");
       if (timerRef.current) {
         window.clearInterval(timerRef.current);
         timerRef.current = null;
@@ -124,7 +124,7 @@ export default function NewMeetingPage() {
     if (recorder.state === "paused") {
       recorder.resume();
       setIsPaused(false);
-      setStatus("錄音已繼續。");
+      setStatus("Recording resumed.");
       timerRef.current = window.setInterval(() => {
         setSeconds((current) => current + 1);
       }, 1000);
@@ -152,7 +152,7 @@ export default function NewMeetingPage() {
     setIsAnalyzing(true);
     setError("");
     setResult(null);
-    setStatus("正在上傳音檔並分析內容...");
+    setStatus("Uploading audio and analyzing content...");
 
     try {
       const formData = new FormData();
@@ -165,14 +165,14 @@ export default function NewMeetingPage() {
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || payload?.detail || "分析失敗");
+        throw new Error(payload?.error || payload?.detail || "Analysis failed");
       }
 
       setResult(payload);
-      setStatus("分析完成，可以查看逐字稿與摘要。✨");
+      setStatus("Analysis complete. You can now review the transcript and summary. ✨");
     } catch (analysisError) {
-      setError(analysisError instanceof Error ? analysisError.message : "分析失敗");
-      setStatus("分析失敗，請檢查 API key 或重新上傳音檔。");
+      setError(analysisError instanceof Error ? analysisError.message : "Analysis failed");
+      setStatus("Analysis failed. Please check the API key or upload the audio again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -196,7 +196,7 @@ export default function NewMeetingPage() {
     setSeconds(0);
     setResult(null);
     setError("");
-    setStatus(`已選擇音檔：${file.name}`);
+    setStatus(`Selected audio file: ${file.name}`);
   }
 
   return (
@@ -204,10 +204,11 @@ export default function NewMeetingPage() {
       <div className="mx-auto max-w-6xl space-y-8">
         <div>
           <p className="text-sm text-cyan-300">New Meeting</p>
-          <h1 className="mt-2 text-4xl font-bold">建立一場新會議</h1>
+          <h1 className="mt-2 text-4xl font-bold">Create a new meeting</h1>
           <p className="mt-4 max-w-3xl text-slate-300">
-            這一版已經可以直接錄音或上傳音檔，送到 OpenAI 做逐字稿與摘要分析。若要正式使用，記得先在 Vercel 設定
-            <code className="mx-1 rounded bg-white/10 px-2 py-1 text-cyan-200">OPENAI_API_KEY</code>。
+            This MVP can already record audio in the browser or upload an audio file, then send it to OpenAI
+            for transcription and summarization. For production use, remember to set
+            <code className="mx-1 rounded bg-white/10 px-2 py-1 text-cyan-200">OPENAI_API_KEY</code> in Vercel.
           </p>
         </div>
 
@@ -216,8 +217,8 @@ export default function NewMeetingPage() {
             <div className="mb-4 flex items-center gap-3">
               <Mic className="h-7 w-7 text-cyan-300" />
               <div>
-                <h2 className="text-2xl font-semibold">直接錄音</h2>
-                <p className="text-sm text-slate-400">用瀏覽器麥克風錄音後直接分析。</p>
+                <h2 className="text-2xl font-semibold">Record in browser</h2>
+                <p className="text-sm text-slate-400">Use your microphone and analyze the recording right away.</p>
               </div>
             </div>
 
@@ -233,7 +234,7 @@ export default function NewMeetingPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Play className="h-4 w-4" />
-                  開始錄音
+                  Start recording
                 </button>
                 <button
                   onClick={pauseRecording}
@@ -241,7 +242,7 @@ export default function NewMeetingPage() {
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Pause className="h-4 w-4" />
-                  {isPaused ? "繼續" : "暫停"}
+                  {isPaused ? "Resume" : "Pause"}
                 </button>
                 <button
                   onClick={stopRecording}
@@ -249,7 +250,7 @@ export default function NewMeetingPage() {
                   className="inline-flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Square className="h-4 w-4" />
-                  結束
+                  Stop
                 </button>
               </div>
             </div>
@@ -259,14 +260,14 @@ export default function NewMeetingPage() {
             <div className="mb-4 flex items-center gap-3">
               <Upload className="h-7 w-7 text-cyan-300" />
               <div>
-                <h2 className="text-2xl font-semibold">上傳音檔</h2>
-                <p className="text-sm text-slate-400">支援 mp3、wav、m4a、webm。</p>
+                <h2 className="text-2xl font-semibold">Upload audio</h2>
+                <p className="text-sm text-slate-400">Supports mp3, wav, m4a, and webm.</p>
               </div>
             </div>
 
             <div className="rounded-2xl border border-dashed border-white/15 bg-slate-950/40 p-8 text-center">
-              <p className="text-lg font-medium">拖曳 / 點選上傳會議音檔</p>
-              <p className="mt-2 text-sm text-slate-400">建議先拿 1~5 分鐘短音檔測試。</p>
+              <p className="text-lg font-medium">Drag in or choose a meeting audio file</p>
+              <p className="mt-2 text-sm text-slate-400">Start with a short 1–5 minute audio clip for testing.</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -279,9 +280,9 @@ export default function NewMeetingPage() {
                 disabled={isAnalyzing || isRecording}
                 className="mt-6 rounded-xl border border-white/15 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                選擇音檔
+                Choose audio file
               </button>
-              {selectedFileName ? <p className="mt-4 text-sm text-cyan-200">已選擇：{selectedFileName}</p> : null}
+              {selectedFileName ? <p className="mt-4 text-sm text-cyan-200">Selected: {selectedFileName}</p> : null}
             </div>
           </section>
         </div>
@@ -289,8 +290,8 @@ export default function NewMeetingPage() {
         <section className="rounded-3xl border border-white/10 bg-slate-900/80 p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold">分析控制台</h2>
-              <p className="mt-2 text-sm text-slate-400">先錄音或上傳，確認音訊後按分析。</p>
+              <h2 className="text-2xl font-semibold">Analysis console</h2>
+              <p className="mt-2 text-sm text-slate-400">Record or upload first, confirm the audio, then run analysis.</p>
             </div>
             <button
               onClick={handleAnalyzeClick}
@@ -298,7 +299,7 @@ export default function NewMeetingPage() {
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isAnalyzing ? "分析中..." : "開始分析"}
+              {isAnalyzing ? "Analyzing..." : "Start analysis"}
             </button>
           </div>
 
@@ -320,7 +321,7 @@ export default function NewMeetingPage() {
         {result ? (
           <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <h2 className="mb-5 text-2xl font-semibold">逐字稿</h2>
+              <h2 className="mb-5 text-2xl font-semibold">Transcript</h2>
               <div className="space-y-4">
                 {result.transcript.map((item, index) => (
                   <article key={`${item.time}-${index}`} className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
@@ -336,12 +337,12 @@ export default function NewMeetingPage() {
 
             <aside className="space-y-6">
               <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h2 className="mb-4 text-2xl font-semibold">會議摘要</h2>
+                <h2 className="mb-4 text-2xl font-semibold">Meeting summary</h2>
                 <p className="leading-8 text-slate-200">{result.summary}</p>
               </section>
 
               <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h3 className="mb-4 text-xl font-semibold">重點整理</h3>
+                <h3 className="mb-4 text-xl font-semibold">Key points</h3>
                 <ul className="space-y-3 text-slate-200">
                   {result.keyPoints.map((point) => (
                     <li key={point} className="rounded-2xl bg-slate-950/50 px-4 py-3">
@@ -352,7 +353,7 @@ export default function NewMeetingPage() {
               </section>
 
               <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h3 className="mb-4 text-xl font-semibold">待辦事項</h3>
+                <h3 className="mb-4 text-xl font-semibold">Action items</h3>
                 <ul className="space-y-3 text-slate-200">
                   {result.actions.map((action) => (
                     <li key={action} className="rounded-2xl bg-slate-950/50 px-4 py-3">

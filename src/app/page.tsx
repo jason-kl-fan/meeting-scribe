@@ -4,23 +4,23 @@ import { sampleMeeting } from "@/lib/sample-data";
 
 const features = [
   {
-    title: "網頁直接錄音",
-    description: "支援開始、暫停、結束錄音，快速建立一場會議。",
+    title: "Record directly in the browser",
+    description: "Start, pause, and stop recording to quickly capture a meeting.",
     icon: Mic,
   },
   {
-    title: "上傳會議音檔",
-    description: "支援既有會議錄音檔，方便先做歷史資料測試。",
+    title: "Upload meeting audio",
+    description: "Use existing recordings to test historical meeting data.",
     icon: FileAudio,
   },
   {
-    title: "逐字稿 + 摘要",
-    description: "錄音完成後產生逐字稿、會議重點、待辦事項。",
+    title: "Transcript + summary",
+    description: "Generate transcripts, key points, and action items after recording.",
     icon: FileText,
   },
   {
-    title: "說話者辨識",
-    description: "區分不同發言者，後續還可手動重新命名。",
+    title: "Speaker identification",
+    description: "Separate speakers and leave room for future manual renaming.",
     icon: Users,
   },
 ];
@@ -35,10 +35,11 @@ export default function Home() {
           </span>
           <div className="max-w-3xl space-y-5">
             <h1 className="text-4xl font-bold tracking-tight text-white md:text-6xl">
-              把會議錄音變成逐字稿、重點摘要與待辦事項。
+              Turn meeting audio into transcripts, summaries, and action items.
             </h1>
             <p className="text-lg leading-8 text-slate-300">
-              這是一個中階版本的會議助理 web app 骨架，先把最重要的流程做出來：錄音 / 上傳、說話者辨識、逐字稿、摘要與會議紀錄頁。
+              This is an MVP meeting assistant web app focused on the core workflow first: recording,
+              uploading, speaker separation, transcription, summarization, and meeting review pages.
             </p>
           </div>
           <div className="flex flex-wrap gap-4">
@@ -46,14 +47,14 @@ export default function Home() {
               href="/meetings/demo"
               className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 font-medium text-slate-950 transition hover:bg-cyan-300"
             >
-              直接看 Demo
+              View demo
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/meetings/new"
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-medium text-white transition hover:bg-white/10"
             >
-              建立新會議
+              Create new meeting
             </Link>
           </div>
         </div>
@@ -75,7 +76,7 @@ export default function Home() {
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">最新會議 Demo</p>
+                <p className="text-sm text-slate-400">Latest demo meeting</p>
                 <h3 className="text-2xl font-semibold">{sampleMeeting.title}</h3>
               </div>
               <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-sm text-emerald-300">
@@ -84,19 +85,19 @@ export default function Home() {
             </div>
             <p className="mb-6 text-slate-300">{sampleMeeting.summary}</p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <InfoCard label="長度" value={sampleMeeting.duration} />
-              <InfoCard label="說話者" value={`${sampleMeeting.speakers.length} 位`} />
-              <InfoCard label="待辦" value={`${sampleMeeting.actions.length} 項`} />
+              <InfoCard label="Duration" value={sampleMeeting.duration} />
+              <InfoCard label="Speakers" value={`${sampleMeeting.speakers.length}`} />
+              <InfoCard label="Actions" value={`${sampleMeeting.actions.length}`} />
             </div>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-slate-900 p-6">
-            <h3 className="mb-4 text-lg font-semibold">目前已完成</h3>
+            <h3 className="mb-4 text-lg font-semibold">Currently included</h3>
             <ul className="space-y-3 text-sm text-slate-300">
               <Bullet text="Prisma schema v2" />
-              <Bullet text="首頁與 demo UI" />
-              <Bullet text="可擴充成真實轉錄流程的資料結構" />
-              <Bullet text="準備接 GitHub private repo" />
+              <Bullet text="Landing page and demo UI" />
+              <Bullet text="Data structure that can grow into a real transcription flow" />
+              <Bullet text="Ready to connect to a private GitHub repo" />
             </ul>
           </div>
         </div>

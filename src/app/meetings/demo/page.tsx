@@ -11,14 +11,14 @@ export default function DemoMeetingPage() {
             <p className="mt-3 text-slate-300">{sampleMeeting.duration} · {sampleMeeting.status}</p>
           </div>
           <div className="flex gap-3">
-            <button className="rounded-xl border border-white/15 px-4 py-2">匯出 Markdown</button>
-            <button className="rounded-xl bg-cyan-400 px-4 py-2 font-medium text-slate-950">重新生成摘要</button>
+            <button className="rounded-xl border border-white/15 px-4 py-2">Export Markdown</button>
+            <button className="rounded-xl bg-cyan-400 px-4 py-2 font-medium text-slate-950">Regenerate summary</button>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="mb-5 text-2xl font-semibold">逐字稿</h2>
+            <h2 className="mb-5 text-2xl font-semibold">Transcript</h2>
             <div className="space-y-4">
               {sampleMeeting.transcript.map((item) => (
                 <article key={`${item.time}-${item.speaker}`} className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
@@ -34,12 +34,12 @@ export default function DemoMeetingPage() {
 
           <aside className="space-y-6">
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <h2 className="mb-4 text-2xl font-semibold">會議摘要</h2>
+              <h2 className="mb-4 text-2xl font-semibold">Meeting summary</h2>
               <p className="leading-8 text-slate-200">{sampleMeeting.summary}</p>
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <h3 className="mb-4 text-xl font-semibold">重點整理</h3>
+              <h3 className="mb-4 text-xl font-semibold">Key points</h3>
               <ul className="space-y-3 text-slate-200">
                 {sampleMeeting.keyPoints.map((point) => (
                   <li key={point} className="rounded-2xl bg-slate-950/50 px-4 py-3">{point}</li>
@@ -48,7 +48,7 @@ export default function DemoMeetingPage() {
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <h3 className="mb-4 text-xl font-semibold">待辦事項</h3>
+              <h3 className="mb-4 text-xl font-semibold">Action items</h3>
               <ul className="space-y-3 text-slate-200">
                 {sampleMeeting.actions.map((action) => (
                   <li key={action} className="rounded-2xl bg-slate-950/50 px-4 py-3">{action}</li>

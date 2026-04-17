@@ -1,35 +1,35 @@
 export const sampleMeeting = {
-  title: "產品週會 Demo",
-  status: "處理完成",
-  duration: "32 分鐘",
-  speakers: ["JJ", "產品經理", "工程師 A"],
+  title: "Product Weekly Demo",
+  status: "Completed",
+  duration: "32 min",
+  speakers: ["JJ", "Product Manager", "Engineer A"],
   summary:
-    "本次會議確認先做中階版本：支援錄音 / 上傳、逐字稿、說話者辨識與會議摘要。第一階段聚焦可用 demo，之後再串接真實語音轉錄服務。",
+    "This meeting confirmed that the first milestone should focus on a mid-level MVP: recording, audio upload, transcript generation, speaker separation, and meeting summaries. The first phase is all about shipping a usable demo before connecting a production-grade speech pipeline.",
   keyPoints: [
-    "第一版採用 Next.js + Prisma + PostgreSQL",
-    "語音辨識優先考慮 Deepgram",
-    "逐字稿需支援 speaker labels 與時間戳",
+    "Version one will use Next.js + Prisma + PostgreSQL",
+    "Deepgram is the leading candidate for speech recognition in a later iteration",
+    "The transcript should support speaker labels and timestamps",
   ],
   actions: [
-    "建立專案骨架與首頁",
-    "完成 Prisma schema v2",
-    "準備錄音 / 上傳流程 UI",
+    "Create the initial project structure and landing page",
+    "Finish Prisma schema v2",
+    "Prepare the recording and upload flow UI",
   ],
   transcript: [
     {
       speaker: "JJ",
       time: "00:00:08",
-      text: "我想先做一個中階版本，重點是可以真的拿來測試。",
+      text: "I want the first version to be a mid-level MVP, but it still needs to be something we can truly test.",
     },
     {
-      speaker: "產品經理",
+      speaker: "Product Manager",
       time: "00:00:21",
-      text: "那我們先把錄音、逐字稿、摘要、說話者辨識放進第一版。",
+      text: "Then let's put recording, transcripts, summaries, and speaker identification into version one.",
     },
     {
-      speaker: "工程師 A",
+      speaker: "Engineer A",
       time: "00:00:42",
-      text: "技術上沒問題，先用現成 API 串接，速度會最快。",
+      text: "Technically that's fine. We should connect to an existing API first so we can move faster.",
     },
   ],
 };
