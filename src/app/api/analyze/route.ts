@@ -50,10 +50,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const audio = formData.get("audio");
-
-    if (!(audio instanceof File)) {
-      return NextResponse.json({ error: "缺少 audio 檔案" }, { status: 400 });
-    }
+    const transcriptOverride = formData.get("transcriptText");
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -63,6 +60,92 @@ export async function POST(request: Request) {
         },
         { status: 500 },
       );
+    }
+
+    if (typeof transcriptOverride === "string" && transcriptOverride.trim()) {
+      const transcriptText = transcriptOverride.trim();
+      const transcript: TranscriptSegment[] = transcriptText
+        .split(/(?<=[。！？.!?])\s+/)
+        .map((sentence: string) => sentence.trim())
+        .filter(Boolean)
+        .map((sentence: string, index: number) => ({
+          speaker: "Speaker 1",
+          time: toTimestamp(index * 15),
+          text: sentence,
+        }));
+
+      const summaryResponse = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4.1-mini",
+          input: [
+            {
+              role: "system",
+              content:
+                "你是會議助理。請根據逐字稿輸出 JSON，格式為 {summary: string, keyPoints: string[], actions: string[]}。summary 用繁體中文，keyPoints 與 actions 各 3-5 條，避免虛詞。只輸出 JSON。",
+            },
+            {
+              role: "user",
+              content: transcriptText,
+            },
+          ],
+          text: {
+            format: {
+              type: "json_schema",
+              name: "meeting_summary",
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  summary: { type: "string" },
+                  keyPoints: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                  actions: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+                required: ["summary", "keyPoints", "actions"],
+              },
+            },
+          },
+        }),
+      });
+
+      let summaryPayload = createFallbackSummary(transcriptText);
+
+      if (summaryResponse.ok) {
+        const summaryJson = await summaryResponse.json();
+        const outputText =
+          summaryJson.output_text ||
+          summaryJson.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content ?? []).map((item: { text?: string }) => item.text ?? "").join("") ||
+          "";
+
+        try {
+          const parsed = JSON.parse(outputText);
+          if (parsed?.summary && Array.isArray(parsed?.keyPoints) && Array.isArray(parsed?.actions)) {
+            summaryPayload = parsed;
+          }
+        } catch {
+          summaryPayload = createFallbackSummary(transcriptText);
+        }
+      }
+
+      return NextResponse.json({
+        transcriptText,
+        transcript,
+        ...summaryPayload,
+      });
+    }
+
+    if (!(audio instanceof File)) {
+      return NextResponse.json({ error: "缺少 audio 檔案" }, { status: 400 });
     }
 
     const transcriptionForm = new FormData();
