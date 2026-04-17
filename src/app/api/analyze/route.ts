@@ -67,8 +67,8 @@ export async function POST(request: Request) {
 
     const transcriptionForm = new FormData();
     transcriptionForm.append("file", audio, audio.name || "recording.webm");
-    transcriptionForm.append("model", "gpt-4o-mini-transcribe");
-    transcriptionForm.append("response_format", "verbose_json");
+    transcriptionForm.append("model", process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe");
+    transcriptionForm.append("response_format", "json");
 
     const transcriptResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
