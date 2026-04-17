@@ -56,6 +56,15 @@ export default function NewMeetingPage() {
 
   async function startRecording() {
     try {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      mediaRecorderRef.current = null;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+
       setError("");
       setResult(null);
       setSelectedFileName("");
@@ -83,6 +92,7 @@ export default function NewMeetingPage() {
         setStatus("Recording finished. You can preview the audio, then start analysis.");
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
+        mediaRecorderRef.current = null;
       };
 
       mediaRecorderRef.current = recorder;
@@ -101,6 +111,8 @@ export default function NewMeetingPage() {
         setSeconds((current) => current + 1);
       }, 1000);
     } catch (recordingError) {
+      setIsRecording(false);
+      setIsPaused(false);
       setError(recordingError instanceof Error ? recordingError.message : "Unable to start recording");
       setStatus("Could not start recording. Please check microphone permissions.");
     }
@@ -133,10 +145,13 @@ export default function NewMeetingPage() {
 
   function stopRecording() {
     const recorder = mediaRecorderRef.current;
-    if (!recorder) return;
 
-    if (recorder.state !== "inactive") {
+    if (recorder && recorder.state !== "inactive") {
       recorder.stop();
+    } else {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      mediaRecorderRef.current = null;
     }
 
     setIsRecording(false);
