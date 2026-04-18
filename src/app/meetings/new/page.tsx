@@ -20,9 +20,12 @@ type RecordedSegment = {
   blob: Blob;
   fileName: string;
   durationSeconds: number;
+  liveTranscript?: string;
+  analyzed?: boolean;
 };
 
 const SEGMENT_SECONDS = 120;
+const LIVE_TRANSCRIBE_SECONDS = 15;
 
 function formatDuration(seconds: number) {
   const hrs = Math.floor(seconds / 3600);
@@ -45,6 +48,7 @@ export default function NewMeetingPage() {
   const nextSegmentStartRef = useRef(false);
   const isStoppingSessionRef = useRef(false);
   const segmentIndexRef = useRef(0);
+  const liveTranscribingCountRef = useRef(0);
 
   const [seconds, setSeconds] = useState(0);
   const [segmentSeconds, setSegmentSeconds] = useState(0);
@@ -56,8 +60,10 @@ export default function NewMeetingPage() {
   const [status, setStatus] = useState<string>("Click start recording, or upload an audio file.");
   const [error, setError] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLiveTranscribing, setIsLiveTranscribing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [recordedSegments, setRecordedSegments] = useState<RecordedSegment[]>([]);
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   useEffect(() => {
     return () => {
@@ -72,9 +78,14 @@ export default function NewMeetingPage() {
   }, [audioUrl]);
 
   const canAnalyze = useMemo(
-    () => (Boolean(audioBlob) || recordedSegments.length > 0) && !isRecording && !isAnalyzing,
-    [audioBlob, recordedSegments.length, isRecording, isAnalyzing],
+    () => (Boolean(audioBlob) || recordedSegments.length > 0) && !isRecording && !isAnalyzing && !isLiveTranscribing,
+    [audioBlob, recordedSegments.length, isRecording, isAnalyzing, isLiveTranscribing],
   );
+
+  function updateLiveTranscribingState(delta: number) {
+    liveTranscribingCountRef.current = Math.max(0, liveTranscribingCountRef.current + delta);
+    setIsLiveTranscribing(liveTranscribingCountRef.current > 0);
+  }
 
   function resetTimer() {
     if (timerRef.current) {
@@ -100,6 +111,80 @@ export default function NewMeetingPage() {
   function stopActiveStream() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+  }
+
+  async function transcribeForLivePreview(blob: Blob, fileName: string) {
+    const formData = new FormData();
+    formData.append("audio", new File([blob], fileName, { type: blob.type || "audio/webm" }));
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      body: formData,
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error || payload?.detail || "Live transcription failed");
+    }
+
+    return payload as AnalysisResult;
+  }
+
+  function appendSegmentAndTranscribe(segment: RecordedSegment) {
+    setRecordedSegments((current) => [...current, segment]);
+    setAudioBlob(segment.blob);
+    setSelectedFileName(segment.fileName);
+    setAudioUrl((previousUrl) => {
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      return URL.createObjectURL(segment.blob);
+    });
+
+    updateLiveTranscribingState(1);
+    setStatus(`Segment ${segmentIndexRef.current} saved. Transcribing preview text...`);
+
+    void transcribeForLivePreview(segment.blob, segment.fileName)
+      .then((partial) => {
+        const transcriptText = partial.transcriptText?.trim() || "";
+        if (!transcriptText) return;
+
+        setRecordedSegments((current) =>
+          current.map((item) =>
+            item.id === segment.id
+              ? {
+                  ...item,
+                  liveTranscript: transcriptText,
+                  analyzed: true,
+                }
+              : item,
+          ),
+        );
+
+        setLiveTranscript((current) => (current ? `${current}\n${transcriptText}` : transcriptText));
+      })
+      .catch((transcriptionError) => {
+        setRecordedSegments((current) =>
+          current.map((item) =>
+            item.id === segment.id
+              ? {
+                  ...item,
+                  analyzed: false,
+                }
+              : item,
+          ),
+        );
+        setError(transcriptionError instanceof Error ? transcriptionError.message : "Live transcription failed");
+      })
+      .finally(() => {
+        updateLiveTranscribingState(-1);
+        setStatus((currentStatus) => {
+          if (isStoppingSessionRef.current) {
+            return "Recording finished. Live transcript is ready; you can now generate the final summary.";
+          }
+          return currentStatus.includes("Transcribing preview text")
+            ? `Recording in progress... live text updates every ${LIVE_TRANSCRIBE_SECONDS}s.`
+            : currentStatus;
+        });
+      });
   }
 
   function beginRecorderWithStream(stream: MediaStream) {
@@ -134,16 +219,7 @@ export default function NewMeetingPage() {
           durationSeconds,
         };
 
-        setRecordedSegments((current) => {
-          const nextSegments = [...current, segment];
-          setAudioBlob(blob);
-          setSelectedFileName(fileName);
-          setAudioUrl((previousUrl) => {
-            if (previousUrl) URL.revokeObjectURL(previousUrl);
-            return URL.createObjectURL(blob);
-          });
-          return nextSegments;
-        });
+        appendSegmentAndTranscribe(segment);
       }
 
       mediaRecorderRef.current = null;
@@ -170,15 +246,15 @@ export default function NewMeetingPage() {
         isStoppingSessionRef.current = false;
         setIsRecording(false);
         setIsPaused(false);
-        setStatus("Recording finished. You can preview the latest segment, then start analysis.");
+        setStatus("Recording finished. Waiting for the last live transcript chunk...");
         return;
       }
 
-      setStatus("Segment saved. You can continue recording or start analysis.");
+      setStatus(`Segment saved. Live text updates every ${LIVE_TRANSCRIBE_SECONDS}s.`);
     };
 
     mediaRecorderRef.current = recorder;
-    recorder.start();
+    recorder.start(LIVE_TRANSCRIBE_SECONDS * 1000);
   }
 
   async function startRecording() {
@@ -195,22 +271,26 @@ export default function NewMeetingPage() {
       setResult(null);
       setSelectedFileName("");
       setAudioBlob(null);
-      if (!recordedSegments.length) {
-        setAudioUrl((previousUrl) => {
-          if (previousUrl) URL.revokeObjectURL(previousUrl);
-          return null;
-        });
-      }
+      setLiveTranscript("");
+      setRecordedSegments([]);
+      segmentIndexRef.current = 0;
+      liveTranscribingCountRef.current = 0;
+      setIsLiveTranscribing(false);
+      setAudioUrl((previousUrl) => {
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+        return null;
+      });
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       nextSegmentStartRef.current = false;
       isStoppingSessionRef.current = false;
+      setSeconds(0);
 
       beginRecorderWithStream(stream);
       setIsRecording(true);
       setIsPaused(false);
-      setStatus(recordedSegments.length ? `Continuing recording with segment ${segmentIndexRef.current + 1}...` : "Recording in progress...");
+      setStatus(`Recording in progress... live text updates every ${LIVE_TRANSCRIBE_SECONDS}s.`);
       resetTimer();
     } catch (recordingError) {
       setIsRecording(false);
@@ -238,7 +318,7 @@ export default function NewMeetingPage() {
     if (recorder.state === "paused") {
       recorder.resume();
       setIsPaused(false);
-      setStatus("Recording resumed.");
+      setStatus(`Recording resumed... live text updates every ${LIVE_TRANSCRIBE_SECONDS}s.`);
       resetTimer();
     }
   }
@@ -307,29 +387,52 @@ export default function NewMeetingPage() {
 
     try {
       if (recordedSegments.length > 0) {
-        setStatus(`Analyzing ${recordedSegments.length} audio segments...`);
-        const partialResults: AnalysisResult[] = [];
+        setStatus(`Preparing final summary from ${recordedSegments.length} recorded segments...`);
 
-        for (let index = 0; index < recordedSegments.length; index += 1) {
-          const segment = recordedSegments[index];
-          setStatus(`Analyzing segment ${index + 1} / ${recordedSegments.length}...`);
-          const partial = await analyzeBlob(segment.blob, segment.fileName);
-          partialResults.push(partial);
-        }
-
-        const mergedTranscriptText = partialResults
-          .map((item) => item.transcriptText)
-          .filter(Boolean)
+        const existingLiveTranscript = recordedSegments
+          .map((item) => item.liveTranscript?.trim())
+          .filter((item): item is string => Boolean(item))
           .join("\n");
 
-        setStatus("Generating full meeting summary from all segments...");
+        let mergedTranscriptText = existingLiveTranscript;
+        let mergedTranscript = recordedSegments.flatMap((segment, index) => {
+          const text = segment.liveTranscript?.trim();
+          if (!text) return [];
+          return [
+            {
+              speaker: "Speaker 1",
+              time: formatDuration(index * LIVE_TRANSCRIBE_SECONDS),
+              text,
+            },
+          ];
+        });
+
+        const missingSegments = recordedSegments.filter((segment) => !segment.liveTranscript?.trim());
+
+        if (missingSegments.length > 0) {
+          setStatus(`Backfilling ${missingSegments.length} segments that do not have live transcript yet...`);
+          const backfilled: AnalysisResult[] = [];
+
+          for (let index = 0; index < missingSegments.length; index += 1) {
+            const segment = missingSegments[index];
+            setStatus(`Backfilling segment ${index + 1} / ${missingSegments.length}...`);
+            const partial = await analyzeBlob(segment.blob, segment.fileName);
+            backfilled.push(partial);
+          }
+
+          const backfilledTranscriptText = backfilled.map((item) => item.transcriptText).filter(Boolean).join("\n");
+          mergedTranscriptText = [mergedTranscriptText, backfilledTranscriptText].filter(Boolean).join("\n");
+          mergedTranscript = [...mergedTranscript, ...backfilled.flatMap((item) => item.transcript)];
+        }
+
+        setStatus("Generating full meeting summary from the live transcript...");
         const merged = await summarizeTranscript(mergedTranscriptText);
         setResult({
           ...merged,
           transcriptText: mergedTranscriptText,
-          transcript: partialResults.flatMap((item) => item.transcript),
+          transcript: mergedTranscript.length ? mergedTranscript : merged.transcript,
         });
-        setStatus("Analysis complete. All segments have been merged into one summary. ✨");
+        setStatus("Final summary complete. ✨");
         return;
       }
 
@@ -352,6 +455,9 @@ export default function NewMeetingPage() {
     setSelectedFileName(file.name);
     setRecordedSegments([]);
     segmentIndexRef.current = 0;
+    liveTranscribingCountRef.current = 0;
+    setIsLiveTranscribing(false);
+    setLiveTranscript("");
     setAudioBlob(file);
     setAudioUrl((previousUrl) => {
       if (previousUrl) URL.revokeObjectURL(previousUrl);
@@ -371,9 +477,9 @@ export default function NewMeetingPage() {
           <p className="text-sm text-cyan-300">New Meeting</p>
           <h1 className="mt-2 text-4xl font-bold">Create a new meeting</h1>
           <p className="mt-4 max-w-3xl text-slate-300">
-            This MVP can already record audio in the browser or upload an audio file, then send it to OpenAI
-            for transcription and summarization. Long recordings are now automatically split into 2-minute
-            segments to reduce crashes. For production use, remember to set
+            This MVP can now transcribe while recording by uploading a short audio chunk every 15 seconds,
+            then generate the final summary after you stop. Long recordings are still protected by 2-minute
+            rolling segments. For production use, remember to set
             <code className="mx-1 rounded bg-white/10 px-2 py-1 text-cyan-200">OPENAI_API_KEY</code> in Vercel.
           </p>
         </div>
@@ -384,14 +490,16 @@ export default function NewMeetingPage() {
               <Mic className="h-7 w-7 text-cyan-300" />
               <div>
                 <h2 className="text-2xl font-semibold">Record in browser</h2>
-                <p className="text-sm text-slate-400">Auto-splits every 2 minutes and merges the final summary.</p>
+                <p className="text-sm text-slate-400">Live transcript updates every 15 seconds while recording.</p>
               </div>
             </div>
 
             <div className="rounded-2xl border border-dashed border-white/15 bg-slate-950/40 p-6 text-center">
               <Clock3 className="mx-auto mb-3 h-10 w-10 text-slate-400" />
               <p className="text-4xl font-semibold tracking-wider">{formatDuration(seconds)}</p>
-              <p className="mt-2 text-sm text-slate-500">Current segment: {formatDuration(segmentSeconds)} / {formatDuration(SEGMENT_SECONDS)}</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Current rolling segment: {formatDuration(segmentSeconds)} / {formatDuration(SEGMENT_SECONDS)}
+              </p>
               <p className="mt-3 text-sm text-slate-400">{status}</p>
 
               <div className="mt-6 flex flex-wrap justify-center gap-3">
@@ -423,12 +531,17 @@ export default function NewMeetingPage() {
 
               {recordedSegments.length > 0 ? (
                 <div className="mt-6 rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-left text-sm text-slate-300">
-                  <p className="font-medium text-cyan-200">Saved segments: {recordedSegments.length}</p>
+                  <p className="font-medium text-cyan-200">Saved live chunks: {recordedSegments.length}</p>
                   <ul className="mt-3 space-y-2">
                     {recordedSegments.map((segment) => (
-                      <li key={segment.id} className="flex items-center justify-between gap-4 rounded-xl bg-slate-950/60 px-3 py-2">
-                        <span className="truncate">{segment.fileName}</span>
-                        <span className="shrink-0 text-slate-400">{formatDuration(segment.durationSeconds)}</span>
+                      <li key={segment.id} className="rounded-xl bg-slate-950/60 px-3 py-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="truncate">{segment.fileName}</span>
+                          <span className="shrink-0 text-slate-400">{formatDuration(segment.durationSeconds)}</span>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-xs text-slate-400">
+                          {segment.liveTranscript?.trim() || (segment.analyzed === false ? "Live transcription failed for this chunk." : "Transcribing...")}
+                        </p>
                       </li>
                     ))}
                   </ul>
@@ -472,7 +585,9 @@ export default function NewMeetingPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-semibold">Analysis console</h2>
-              <p className="mt-2 text-sm text-slate-400">Record or upload first, confirm the audio, then run analysis.</p>
+              <p className="mt-2 text-sm text-slate-400">
+                While recording, the live transcript grows chunk by chunk. After stopping, run the final summary.
+              </p>
             </div>
             <button
               onClick={handleAnalyzeClick}
@@ -480,9 +595,15 @@ export default function NewMeetingPage() {
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isAnalyzing ? "Analyzing..." : recordedSegments.length > 0 ? `Analyze ${recordedSegments.length} segments` : "Start analysis"}
+              {isAnalyzing ? "Analyzing..." : recordedSegments.length > 0 ? "Generate final summary" : "Start analysis"}
             </button>
           </div>
+
+          {isLiveTranscribing ? (
+            <div className="mt-6 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+              正在把最新錄音片段轉成文字…
+            </div>
+          ) : null}
 
           {audioUrl ? (
             <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
@@ -491,6 +612,13 @@ export default function NewMeetingPage() {
                 <span>{selectedFileName || "recording.webm"}</span>
               </div>
               <audio controls src={audioUrl} className="w-full" />
+            </div>
+          ) : null}
+
+          {liveTranscript ? (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+              <h3 className="mb-3 text-lg font-semibold text-cyan-200">Live transcript preview</h3>
+              <p className="whitespace-pre-wrap leading-7 text-slate-200">{liveTranscript}</p>
             </div>
           ) : null}
 
