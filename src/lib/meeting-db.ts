@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
 export type MeetingTranscriptItem = {
@@ -117,6 +118,14 @@ export async function persistMeeting(input: PersistMeetingInput) {
   return meeting;
 }
 
+type MeetingWithRelations = Prisma.MeetingGetPayload<{
+  include: {
+    summaries: { orderBy: { createdAt: "desc" }; take: 1 };
+    actionItems: { orderBy: { createdAt: "asc" } };
+    transcriptSegments: { orderBy: { startMs: "asc" } };
+  };
+}>;
+
 function msToTimestamp(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hrs = Math.floor(totalSeconds / 3600);
@@ -135,7 +144,7 @@ export async function listMeetings() {
     },
   });
 
-  return meetings.map((meeting) => ({
+  return meetings.map((meeting: MeetingWithRelations) => ({
     id: meeting.id,
     title: meeting.title,
     createdAt: meeting.createdAt.toISOString(),
@@ -144,9 +153,9 @@ export async function listMeetings() {
     status: meeting.status,
     summary: meeting.summaries[0]?.summaryText || "",
     keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
-    actions: meeting.actionItems.map((item) => item.task),
+    actions: meeting.actionItems.map((item: MeetingWithRelations["actionItems"][number]) => item.task),
     transcriptText: meeting.transcriptText || "",
-    transcript: meeting.transcriptSegments.map((segment) => ({
+    transcript: meeting.transcriptSegments.map((segment: MeetingWithRelations["transcriptSegments"][number]) => ({
       speaker: segment.speakerKey || "Speaker 1",
       time: msToTimestamp(segment.startMs),
       text: segment.text,
@@ -175,9 +184,9 @@ export async function getMeetingById(id: string) {
     status: meeting.status,
     summary: meeting.summaries[0]?.summaryText || "",
     keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
-    actions: meeting.actionItems.map((item) => item.task),
+    actions: meeting.actionItems.map((item: MeetingWithRelations["actionItems"][number]) => item.task),
     transcriptText: meeting.transcriptText || "",
-    transcript: meeting.transcriptSegments.map((segment) => ({
+    transcript: meeting.transcriptSegments.map((segment: MeetingWithRelations["transcriptSegments"][number]) => ({
       speaker: segment.speakerKey || "Speaker 1",
       time: msToTimestamp(segment.startMs),
       text: segment.text,
