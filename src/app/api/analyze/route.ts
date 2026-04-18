@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { persistMeeting } from "@/lib/meeting-db";
 
 export const runtime = "nodejs";
 
@@ -137,7 +138,19 @@ export async function POST(request: Request) {
         }
       }
 
+      const savedMeeting = await persistMeeting({
+        title: `Meeting ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+        sourceLabel: "Recorded in browser",
+        durationSeconds: transcript.length * 15,
+        transcriptText,
+        transcript,
+        summary: summaryPayload.summary,
+        keyPoints: summaryPayload.keyPoints,
+        actions: summaryPayload.actions,
+      });
+
       return NextResponse.json({
+        meetingId: savedMeeting.id,
         transcriptText,
         transcript,
         ...summaryPayload,
@@ -255,7 +268,22 @@ export async function POST(request: Request) {
       }
     }
 
+    const savedMeeting = await persistMeeting({
+      title: audio.name ? audio.name.replace(/\.[^.]+$/, "") : `Meeting ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+      sourceLabel: audio.name ? "Uploaded audio" : "Recorded in browser",
+      durationSeconds: transcript.length * 15,
+      transcriptText,
+      transcript,
+      summary: summaryPayload.summary,
+      keyPoints: summaryPayload.keyPoints,
+      actions: summaryPayload.actions,
+      audioFilename: audio.name || null,
+      audioMimeType: audio.type || null,
+      audioSizeBytes: audio.size || null,
+    });
+
     return NextResponse.json({
+      meetingId: savedMeeting.id,
       transcriptText,
       transcript,
       ...summaryPayload,

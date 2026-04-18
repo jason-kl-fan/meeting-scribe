@@ -23,7 +23,21 @@ export default function MeetingDetailPage() {
   const [meeting, setMeeting] = useState<MeetingHistoryItem | null | undefined>(undefined);
 
   useEffect(() => {
-    setMeeting(getMeetingHistoryItem(params.id));
+    let cancelled = false;
+
+    void getMeetingHistoryItem(params.id)
+      .then((nextMeeting) => {
+        if (cancelled) return;
+        setMeeting(nextMeeting);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMeeting(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [params.id]);
 
   if (meeting === undefined) {

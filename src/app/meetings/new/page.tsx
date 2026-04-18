@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Mic, Upload, Clock3, Loader2, Square, Pause, Play, FileAudio, Sparkles } from "lucide-react";
-import { createMeetingId, prependMeetingHistory, type MeetingHistoryItem } from "@/lib/meeting-history";
 
 type AnalysisResult = {
+  meetingId?: string;
   transcriptText: string;
   summary: string;
   keyPoints: string[];
@@ -38,38 +38,6 @@ function formatDuration(seconds: number) {
 
 function createSegmentFileName(index: number) {
   return `recording-part-${String(index).padStart(3, "0")}.webm`;
-}
-
-function buildHistoryItem({
-  result,
-  transcriptText,
-  selectedFileName,
-  recordedSegments,
-  seconds,
-}: {
-  result: AnalysisResult;
-  transcriptText: string;
-  selectedFileName: string;
-  recordedSegments: RecordedSegment[];
-  seconds: number;
-}): MeetingHistoryItem {
-  const createdAt = new Date().toISOString();
-  const sourceLabel = recordedSegments.length > 0 ? "Recorded in browser" : selectedFileName || "Uploaded audio";
-  const titleBase = recordedSegments.length > 0 ? "Recorded meeting" : selectedFileName.replace(/\.[^.]+$/, "") || "Uploaded meeting";
-
-  return {
-    id: createMeetingId(),
-    title: `${titleBase} · ${new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
-    createdAt,
-    duration: formatDuration(seconds),
-    sourceLabel,
-    status: "COMPLETED",
-    summary: result.summary,
-    keyPoints: result.keyPoints,
-    actions: result.actions,
-    transcriptText,
-    transcript: result.transcript,
-  };
 }
 
 export default function NewMeetingPage() {
@@ -469,32 +437,16 @@ export default function NewMeetingPage() {
           transcript: mergedTranscript.length ? mergedTranscript : merged.transcript,
         };
         setResult(finalResult);
-        const historyItem = buildHistoryItem({
-          result: finalResult,
-          transcriptText: mergedTranscriptText,
-          selectedFileName,
-          recordedSegments,
-          seconds,
-        });
-        prependMeetingHistory(historyItem);
-        setSavedMeetingId(historyItem.id);
-        setStatus("Final summary complete and saved to history. ✨");
+        setSavedMeetingId(merged.meetingId || null);
+        setStatus("Final summary complete and saved to database history. ✨");
         return;
       }
 
       setStatus("Uploading audio and analyzing content...");
       const payload = await analyzeBlob(audioBlob as Blob, selectedFileName || "recording.webm");
       setResult(payload);
-      const historyItem = buildHistoryItem({
-        result: payload,
-        transcriptText: payload.transcriptText,
-        selectedFileName,
-        recordedSegments,
-        seconds,
-      });
-      prependMeetingHistory(historyItem);
-      setSavedMeetingId(historyItem.id);
-      setStatus("Analysis complete and saved to history. ✨");
+      setSavedMeetingId(payload.meetingId || null);
+      setStatus("Analysis complete and saved to database history. ✨");
     } catch (analysisError) {
       setError(analysisError instanceof Error ? analysisError.message : "Analysis failed");
       setStatus("Analysis failed. Please check the API key or upload the audio again.");

@@ -40,8 +40,25 @@ export default function MeetingsHistoryPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setItems(loadMeetingHistory());
-    setLoaded(true);
+    let cancelled = false;
+
+    void loadMeetingHistory()
+      .then((nextItems) => {
+        if (cancelled) return;
+        setItems(nextItems);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setItems([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const totalActions = useMemo(
@@ -57,8 +74,8 @@ export default function MeetingsHistoryPage() {
             <p className="text-sm text-cyan-300">Meeting History</p>
             <h1 className="mt-2 text-4xl font-bold">Review previous meeting analyses</h1>
             <p className="mt-3 max-w-3xl text-slate-300">
-              This page is the UI-first history version. It currently reads from browser local storage, so you can
-              review previous summaries before we move to database persistence.
+              This page now reads meeting history from the database, so your previous analyses are preserved across
+              browser restarts and devices.
             </p>
           </div>
           <Link
@@ -73,7 +90,7 @@ export default function MeetingsHistoryPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <StatCard label="Saved meetings" value={loaded ? String(items.length) : "..."} />
           <StatCard label="Total action items" value={loaded ? String(totalActions) : "..."} />
-          <StatCard label="Storage mode" value="Browser local" />
+          <StatCard label="Storage mode" value="PostgreSQL" />
         </div>
 
         {!loaded ? null : items.length === 0 ? (

@@ -18,37 +18,23 @@ export type MeetingHistoryItem = {
   transcript: MeetingTranscriptItem[];
 };
 
-const STORAGE_KEY = "meeting-scribe-history";
-
-export function createMeetingId() {
-  return `meeting-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function loadMeetingHistory(): MeetingHistoryItem[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as MeetingHistoryItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+export async function loadMeetingHistory(): Promise<MeetingHistoryItem[]> {
+  const response = await fetch("/api/meetings", { cache: "no-store" });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.detail || "Failed to load meeting history");
   }
+  return Array.isArray(payload?.meetings) ? payload.meetings : [];
 }
 
-export function saveMeetingHistory(items: MeetingHistoryItem[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
+export async function getMeetingHistoryItem(id: string): Promise<MeetingHistoryItem | null> {
+  const response = await fetch(`/api/meetings/${id}`, { cache: "no-store" });
+  if (response.status === 404) return null;
 
-export function prependMeetingHistory(item: MeetingHistoryItem) {
-  const current = loadMeetingHistory();
-  const next = [item, ...current.filter((existing) => existing.id !== item.id)];
-  saveMeetingHistory(next);
-  return next;
-}
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.detail || "Failed to load meeting detail");
+  }
 
-export function getMeetingHistoryItem(id: string) {
-  return loadMeetingHistory().find((item) => item.id === id) ?? null;
+  return payload?.meeting ?? null;
 }
