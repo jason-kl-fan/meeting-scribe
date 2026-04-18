@@ -56,6 +56,12 @@ export default function Home() {
             >
               Create new meeting
             </Link>
+            <Link
+              href="/meetings"
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 font-medium text-cyan-100 transition hover:bg-cyan-400/15"
+            >
+              Review history
+            </Link>
           </div>
         </div>
 
@@ -97,7 +103,7 @@ export default function Home() {
               <Bullet text="Prisma schema v2" />
               <Bullet text="Landing page and demo UI" />
               <Bullet text="Data structure that can grow into a real transcription flow" />
-              <Bullet text="Ready to connect to a private GitHub repo" />
+              <Bullet text="History page prototype (browser local storage)" />
             </ul>
           </div>
         </div>

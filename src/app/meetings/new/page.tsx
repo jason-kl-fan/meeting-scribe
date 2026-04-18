@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Mic, Upload, Clock3, Loader2, Square, Pause, Play, FileAudio, Sparkles } from "lucide-react";
+import { createMeetingId, prependMeetingHistory, type MeetingHistoryItem } from "@/lib/meeting-history";
 
 type AnalysisResult = {
   transcriptText: string;
@@ -38,6 +40,38 @@ function createSegmentFileName(index: number) {
   return `recording-part-${String(index).padStart(3, "0")}.webm`;
 }
 
+function buildHistoryItem({
+  result,
+  transcriptText,
+  selectedFileName,
+  recordedSegments,
+  seconds,
+}: {
+  result: AnalysisResult;
+  transcriptText: string;
+  selectedFileName: string;
+  recordedSegments: RecordedSegment[];
+  seconds: number;
+}): MeetingHistoryItem {
+  const createdAt = new Date().toISOString();
+  const sourceLabel = recordedSegments.length > 0 ? "Recorded in browser" : selectedFileName || "Uploaded audio";
+  const titleBase = recordedSegments.length > 0 ? "Recorded meeting" : selectedFileName.replace(/\.[^.]+$/, "") || "Uploaded meeting";
+
+  return {
+    id: createMeetingId(),
+    title: `${titleBase} · ${new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    createdAt,
+    duration: formatDuration(seconds),
+    sourceLabel,
+    status: "COMPLETED",
+    summary: result.summary,
+    keyPoints: result.keyPoints,
+    actions: result.actions,
+    transcriptText,
+    transcript: result.transcript,
+  };
+}
+
 export default function NewMeetingPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -64,6 +98,7 @@ export default function NewMeetingPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [recordedSegments, setRecordedSegments] = useState<RecordedSegment[]>([]);
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [savedMeetingId, setSavedMeetingId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -269,6 +304,7 @@ export default function NewMeetingPage() {
 
       setError("");
       setResult(null);
+      setSavedMeetingId(null);
       setSelectedFileName("");
       setAudioBlob(null);
       setLiveTranscript("");
@@ -427,19 +463,38 @@ export default function NewMeetingPage() {
 
         setStatus("Generating full meeting summary from the live transcript...");
         const merged = await summarizeTranscript(mergedTranscriptText);
-        setResult({
+        const finalResult = {
           ...merged,
           transcriptText: mergedTranscriptText,
           transcript: mergedTranscript.length ? mergedTranscript : merged.transcript,
+        };
+        setResult(finalResult);
+        const historyItem = buildHistoryItem({
+          result: finalResult,
+          transcriptText: mergedTranscriptText,
+          selectedFileName,
+          recordedSegments,
+          seconds,
         });
-        setStatus("Final summary complete. ✨");
+        prependMeetingHistory(historyItem);
+        setSavedMeetingId(historyItem.id);
+        setStatus("Final summary complete and saved to history. ✨");
         return;
       }
 
       setStatus("Uploading audio and analyzing content...");
       const payload = await analyzeBlob(audioBlob as Blob, selectedFileName || "recording.webm");
       setResult(payload);
-      setStatus("Analysis complete. You can now review the transcript and summary. ✨");
+      const historyItem = buildHistoryItem({
+        result: payload,
+        transcriptText: payload.transcriptText,
+        selectedFileName,
+        recordedSegments,
+        seconds,
+      });
+      prependMeetingHistory(historyItem);
+      setSavedMeetingId(historyItem.id);
+      setStatus("Analysis complete and saved to history. ✨");
     } catch (analysisError) {
       setError(analysisError instanceof Error ? analysisError.message : "Analysis failed");
       setStatus("Analysis failed. Please check the API key or upload the audio again.");
@@ -453,6 +508,7 @@ export default function NewMeetingPage() {
     if (!file) return;
 
     setSelectedFileName(file.name);
+    setSavedMeetingId(null);
     setRecordedSegments([]);
     segmentIndexRef.current = 0;
     liveTranscribingCountRef.current = 0;
@@ -602,6 +658,14 @@ export default function NewMeetingPage() {
           {isLiveTranscribing ? (
             <div className="mt-6 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
               正在把最新錄音片段轉成文字…
+            </div>
+          ) : null}
+
+          {savedMeetingId ? (
+            <div className="mt-6 flex flex-wrap gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+              <span>這次分析已經存到歷史紀錄。</span>
+              <Link href="/meetings" className="font-medium text-emerald-200 underline underline-offset-4">查看歷史列表</Link>
+              <Link href={`/meetings/${savedMeetingId}`} className="font-medium text-emerald-200 underline underline-offset-4">打開這筆詳情</Link>
             </div>
           ) : null}
 
