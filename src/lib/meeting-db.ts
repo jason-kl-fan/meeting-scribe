@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
 export type MeetingTranscriptItem = {
@@ -21,6 +20,34 @@ export type PersistMeetingInput = {
   audioSizeBytes?: number | null;
 };
 
+type ActionItemRow = {
+  task: string;
+};
+
+type TranscriptSegmentRow = {
+  speakerKey: string | null;
+  startMs: number;
+  text: string;
+};
+
+type SummaryRow = {
+  summaryText: string;
+  keyPointsJson: unknown;
+};
+
+type MeetingWithRelations = {
+  id: string;
+  title: string;
+  createdAt: Date;
+  durationSeconds: number | null;
+  sourceType: string;
+  status: string;
+  transcriptText: string | null;
+  summaries: SummaryRow[];
+  actionItems: ActionItemRow[];
+  transcriptSegments: TranscriptSegmentRow[];
+};
+
 const DEMO_USER_EMAIL = "demo@meeting-scribe.local";
 
 function parseTimestampToMs(value: string, fallbackIndex: number) {
@@ -32,6 +59,34 @@ function parseTimestampToMs(value: string, fallbackIndex: number) {
 
 function inferSourceType(sourceLabel: string) {
   return /upload/i.test(sourceLabel) ? "UPLOAD" : "RECORDING";
+}
+
+function msToTimestamp(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hrs = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  return [hrs, mins, secs].map((value) => value.toString().padStart(2, "0")).join(":");
+}
+
+function formatMeeting(meeting: MeetingWithRelations) {
+  return {
+    id: meeting.id,
+    title: meeting.title,
+    createdAt: meeting.createdAt.toISOString(),
+    duration: msToTimestamp((meeting.durationSeconds || 0) * 1000),
+    sourceLabel: meeting.sourceType === "UPLOAD" ? "Uploaded audio" : "Recorded in browser",
+    status: meeting.status,
+    summary: meeting.summaries[0]?.summaryText || "",
+    keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
+    actions: meeting.actionItems.map((item: ActionItemRow) => item.task),
+    transcriptText: meeting.transcriptText || "",
+    transcript: meeting.transcriptSegments.map((segment: TranscriptSegmentRow) => ({
+      speaker: segment.speakerKey || "Speaker 1",
+      time: msToTimestamp(segment.startMs),
+      text: segment.text,
+    })),
+  };
 }
 
 export async function getOrCreateDemoUser() {
@@ -50,7 +105,7 @@ export async function persistMeeting(input: PersistMeetingInput) {
   const user = await getOrCreateDemoUser();
   const now = new Date();
 
-  const meeting = await getPrisma().meeting.create({
+  return getPrisma().meeting.create({
     data: {
       userId: user.id,
       title: input.title,
@@ -108,88 +163,33 @@ export async function persistMeeting(input: PersistMeetingInput) {
         })),
       },
     },
-    include: {
-      summaries: { orderBy: { createdAt: "desc" }, take: 1 },
-      actionItems: { orderBy: { createdAt: "asc" } },
-      transcriptSegments: { orderBy: { startMs: "asc" } },
-    },
   });
-
-  return meeting;
-}
-
-type MeetingWithRelations = Prisma.MeetingGetPayload<{
-  include: {
-    summaries: { orderBy: { createdAt: "desc" }; take: 1 };
-    actionItems: { orderBy: { createdAt: "asc" } };
-    transcriptSegments: { orderBy: { startMs: "asc" } };
-  };
-}>;
-
-function msToTimestamp(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const hrs = Math.floor(totalSeconds / 3600);
-  const mins = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-  return [hrs, mins, secs].map((value) => value.toString().padStart(2, "0")).join(":");
 }
 
 export async function listMeetings() {
-  const meetings = await getPrisma().meeting.findMany({
+  const meetings = (await getPrisma().meeting.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
       actionItems: { orderBy: { createdAt: "asc" } },
       transcriptSegments: { orderBy: { startMs: "asc" } },
     },
-  });
+  })) as MeetingWithRelations[];
 
-  return meetings.map((meeting: MeetingWithRelations) => ({
-    id: meeting.id,
-    title: meeting.title,
-    createdAt: meeting.createdAt.toISOString(),
-    duration: msToTimestamp((meeting.durationSeconds || 0) * 1000),
-    sourceLabel: meeting.sourceType === "UPLOAD" ? "Uploaded audio" : "Recorded in browser",
-    status: meeting.status,
-    summary: meeting.summaries[0]?.summaryText || "",
-    keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
-    actions: meeting.actionItems.map((item: MeetingWithRelations["actionItems"][number]) => item.task),
-    transcriptText: meeting.transcriptText || "",
-    transcript: meeting.transcriptSegments.map((segment: MeetingWithRelations["transcriptSegments"][number]) => ({
-      speaker: segment.speakerKey || "Speaker 1",
-      time: msToTimestamp(segment.startMs),
-      text: segment.text,
-    })),
-  }));
+  return meetings.map(formatMeeting);
 }
 
 export async function getMeetingById(id: string) {
-  const meeting = await getPrisma().meeting.findUnique({
+  const meeting = (await getPrisma().meeting.findUnique({
     where: { id },
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
       actionItems: { orderBy: { createdAt: "asc" } },
       transcriptSegments: { orderBy: { startMs: "asc" } },
     },
-  });
+  })) as MeetingWithRelations | null;
 
   if (!meeting) return null;
 
-  return {
-    id: meeting.id,
-    title: meeting.title,
-    createdAt: meeting.createdAt.toISOString(),
-    duration: msToTimestamp((meeting.durationSeconds || 0) * 1000),
-    sourceLabel: meeting.sourceType === "UPLOAD" ? "Uploaded audio" : "Recorded in browser",
-    status: meeting.status,
-    summary: meeting.summaries[0]?.summaryText || "",
-    keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
-    actions: meeting.actionItems.map((item: MeetingWithRelations["actionItems"][number]) => item.task),
-    transcriptText: meeting.transcriptText || "",
-    transcript: meeting.transcriptSegments.map((segment: MeetingWithRelations["transcriptSegments"][number]) => ({
-      speaker: segment.speakerKey || "Speaker 1",
-      time: msToTimestamp(segment.startMs),
-      text: segment.text,
-    })),
-  };
+  return formatMeeting(meeting);
 }
