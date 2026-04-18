@@ -1,5 +1,4 @@
-import { ActionItemStatus, MeetingSourceType, MeetingStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export type MeetingTranscriptItem = {
   speaker: string;
@@ -31,14 +30,14 @@ function parseTimestampToMs(value: string, fallbackIndex: number) {
 }
 
 function inferSourceType(sourceLabel: string) {
-  return /upload/i.test(sourceLabel) ? MeetingSourceType.UPLOAD : MeetingSourceType.RECORDING;
+  return /upload/i.test(sourceLabel) ? "UPLOAD" : "RECORDING";
 }
 
 export async function getOrCreateDemoUser() {
-  const existing = await prisma.user.findUnique({ where: { email: DEMO_USER_EMAIL } });
+  const existing = await getPrisma().user.findUnique({ where: { email: DEMO_USER_EMAIL } });
   if (existing) return existing;
 
-  return prisma.user.create({
+  return getPrisma().user.create({
     data: {
       email: DEMO_USER_EMAIL,
       name: "Demo User",
@@ -50,7 +49,7 @@ export async function persistMeeting(input: PersistMeetingInput) {
   const user = await getOrCreateDemoUser();
   const now = new Date();
 
-  const meeting = await prisma.meeting.create({
+  const meeting = await getPrisma().meeting.create({
     data: {
       userId: user.id,
       title: input.title,
@@ -59,7 +58,7 @@ export async function persistMeeting(input: PersistMeetingInput) {
       audioMimeType: input.audioMimeType ?? undefined,
       audioSizeBytes: input.audioSizeBytes ?? undefined,
       durationSeconds: input.durationSeconds,
-      status: MeetingStatus.COMPLETED,
+      status: "COMPLETED",
       transcriptText: input.transcriptText,
       startedAt: input.durationSeconds > 0 ? new Date(now.getTime() - input.durationSeconds * 1000) : now,
       completedAt: now,
@@ -76,7 +75,7 @@ export async function persistMeeting(input: PersistMeetingInput) {
       actionItems: {
         create: input.actions.map((task) => ({
           task,
-          status: ActionItemStatus.TODO,
+          status: "TODO",
         })),
       },
       transcriptSegments: {
@@ -127,7 +126,7 @@ function msToTimestamp(ms: number) {
 }
 
 export async function listMeetings() {
-  const meetings = await prisma.meeting.findMany({
+  const meetings = await getPrisma().meeting.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -141,7 +140,7 @@ export async function listMeetings() {
     title: meeting.title,
     createdAt: meeting.createdAt.toISOString(),
     duration: msToTimestamp((meeting.durationSeconds || 0) * 1000),
-    sourceLabel: meeting.sourceType === MeetingSourceType.UPLOAD ? "Uploaded audio" : "Recorded in browser",
+    sourceLabel: meeting.sourceType === "UPLOAD" ? "Uploaded audio" : "Recorded in browser",
     status: meeting.status,
     summary: meeting.summaries[0]?.summaryText || "",
     keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
@@ -156,7 +155,7 @@ export async function listMeetings() {
 }
 
 export async function getMeetingById(id: string) {
-  const meeting = await prisma.meeting.findUnique({
+  const meeting = await getPrisma().meeting.findUnique({
     where: { id },
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -172,7 +171,7 @@ export async function getMeetingById(id: string) {
     title: meeting.title,
     createdAt: meeting.createdAt.toISOString(),
     duration: msToTimestamp((meeting.durationSeconds || 0) * 1000),
-    sourceLabel: meeting.sourceType === MeetingSourceType.UPLOAD ? "Uploaded audio" : "Recorded in browser",
+    sourceLabel: meeting.sourceType === "UPLOAD" ? "Uploaded audio" : "Recorded in browser",
     status: meeting.status,
     summary: meeting.summaries[0]?.summaryText || "",
     keyPoints: Array.isArray(meeting.summaries[0]?.keyPointsJson) ? (meeting.summaries[0]?.keyPointsJson as string[]) : [],
