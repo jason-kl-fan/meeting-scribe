@@ -6,12 +6,11 @@ import { LockKeyhole, Sparkles } from "lucide-react";
 import { hasAuth, setAuth } from "@/components/app-shell";
 
 const DEMO_USERNAME = process.env.NEXT_PUBLIC_DEMO_USERNAME || "Jason";
-const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD || "123456";
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState(DEMO_USERNAME);
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -100,7 +99,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 outline-none transition focus:border-cyan-300"
-                placeholder="******"
+                placeholder="請輸入密碼"
               />
             </label>
 
@@ -115,9 +114,8 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-300">
-            <p className="font-medium text-cyan-200">目前為 demo 登入</p>
-            <p className="mt-2">帳號：Jason</p>
-            <p>密碼：123456</p>
+            <p className="font-medium text-cyan-200">受保護登入</p>
+            <p className="mt-2">請輸入已設定的帳號與密碼登入。</p>
           </div>
         </section>
       </div>
