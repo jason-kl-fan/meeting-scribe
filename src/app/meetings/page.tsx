@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Clock3, FileText, History, Sparkles } from "lucide-react";
 import { loadMeetingHistory, type MeetingHistoryItem } from "@/lib/meeting-history";
+import { AppShell } from "@/components/app-shell";
+import { RequireAuth } from "@/components/require-auth";
 
 function EmptyState() {
   return (
@@ -67,69 +69,71 @@ export default function MeetingsHistoryPage() {
   );
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-white lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm text-cyan-300">Meeting History</p>
-            <h1 className="mt-2 text-4xl font-bold">Review previous meeting analyses</h1>
-            <p className="mt-3 max-w-3xl text-slate-300">
-              This page now reads meeting history from the database, so your previous analyses are preserved across
-              browser restarts and devices.
-            </p>
+    <RequireAuth>
+      <AppShell>
+        <div className="mx-auto max-w-6xl space-y-8 px-6 py-12 lg:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm text-cyan-300">Meeting History</p>
+              <h1 className="mt-2 text-4xl font-bold">Review previous meeting analyses</h1>
+              <p className="mt-3 max-w-3xl text-slate-300">
+                This page now reads meeting history from the database, so your previous analyses are preserved across
+                browser restarts and devices.
+              </p>
+            </div>
+            <Link
+              href="/meetings/new"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 font-medium text-slate-950"
+            >
+              <Sparkles className="h-4 w-4" />
+              New meeting
+            </Link>
           </div>
-          <Link
-            href="/meetings/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 font-medium text-slate-950"
-          >
-            <Sparkles className="h-4 w-4" />
-            New meeting
-          </Link>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <StatCard label="Saved meetings" value={loaded ? String(items.length) : "..."} />
-          <StatCard label="Total action items" value={loaded ? String(totalActions) : "..."} />
-          <StatCard label="Storage mode" value="PostgreSQL" />
-        </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard label="Saved meetings" value={loaded ? String(items.length) : "..."} />
+            <StatCard label="Total action items" value={loaded ? String(totalActions) : "..."} />
+            <StatCard label="Storage mode" value="PostgreSQL" />
+          </div>
 
-        {!loaded ? null : items.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="grid gap-4">
-            {items.map((item) => (
-              <Link
-                key={item.id}
-                href={`/meetings/${item.id}`}
-                className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-cyan-300/40 hover:bg-white/7"
-              >
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-2xl font-semibold">{item.title}</h2>
-                      <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-sm text-emerald-300">
-                        {item.status}
-                      </span>
+          {!loaded ? null : items.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="grid gap-4">
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/meetings/${item.id}`}
+                  className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-cyan-300/40 hover:bg-white/7"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-2xl font-semibold">{item.title}</h2>
+                        <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-sm text-emerald-300">
+                          {item.status}
+                        </span>
+                      </div>
+                      <p className="max-w-3xl leading-7 text-slate-300">{item.summary}</p>
+                      <div className="flex flex-wrap gap-4 text-sm text-slate-400">
+                        <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(item.createdAt)}</span>
+                        <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4" />{item.duration}</span>
+                        <span className="inline-flex items-center gap-2"><FileText className="h-4 w-4" />{item.sourceLabel}</span>
+                      </div>
                     </div>
-                    <p className="max-w-3xl leading-7 text-slate-300">{item.summary}</p>
-                    <div className="flex flex-wrap gap-4 text-sm text-slate-400">
-                      <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(item.createdAt)}</span>
-                      <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4" />{item.duration}</span>
-                      <span className="inline-flex items-center gap-2"><FileText className="h-4 w-4" />{item.sourceLabel}</span>
+                    <div className="grid min-w-52 gap-3 sm:grid-cols-3 md:grid-cols-1">
+                      <MiniStat label="Key points" value={String(item.keyPoints.length)} />
+                      <MiniStat label="Actions" value={String(item.actions.length)} />
+                      <MiniStat label="Transcript lines" value={String(item.transcript.length)} />
                     </div>
                   </div>
-                  <div className="grid min-w-52 gap-3 sm:grid-cols-3 md:grid-cols-1">
-                    <MiniStat label="Key points" value={String(item.keyPoints.length)} />
-                    <MiniStat label="Actions" value={String(item.actions.length)} />
-                    <MiniStat label="Transcript lines" value={String(item.transcript.length)} />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </AppShell>
+    </RequireAuth>
   );
 }
 

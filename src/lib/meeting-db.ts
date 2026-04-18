@@ -48,7 +48,8 @@ type MeetingWithRelations = {
   transcriptSegments: TranscriptSegmentRow[];
 };
 
-const DEMO_USER_EMAIL = "demo@meeting-scribe.local";
+const DEFAULT_USERNAME = "Jason";
+const DEFAULT_USER_EMAIL = "jason@meeting-scribe.local";
 
 function parseTimestampToMs(value: string, fallbackIndex: number) {
   const match = value.match(/^(\d{2}):(\d{2}):(\d{2})$/);
@@ -89,20 +90,21 @@ function formatMeeting(meeting: MeetingWithRelations) {
   };
 }
 
-export async function getOrCreateDemoUser() {
-  const existing = await getPrisma().user.findUnique({ where: { email: DEMO_USER_EMAIL } });
+export async function getOrCreateUser(username = DEFAULT_USERNAME) {
+  const email = `${username.toLowerCase()}@meeting-scribe.local` || DEFAULT_USER_EMAIL;
+  const existing = await getPrisma().user.findUnique({ where: { email } });
   if (existing) return existing;
 
   return getPrisma().user.create({
     data: {
-      email: DEMO_USER_EMAIL,
-      name: "Demo User",
+      email,
+      name: username,
     },
   });
 }
 
-export async function persistMeeting(input: PersistMeetingInput) {
-  const user = await getOrCreateDemoUser();
+export async function persistMeeting(input: PersistMeetingInput & { username?: string }) {
+  const user = await getOrCreateUser(input.username || DEFAULT_USERNAME);
   const now = new Date();
 
   return getPrisma().meeting.create({
@@ -166,8 +168,10 @@ export async function persistMeeting(input: PersistMeetingInput) {
   });
 }
 
-export async function listMeetings() {
+export async function listMeetings(username = DEFAULT_USERNAME) {
+  const user = await getOrCreateUser(username);
   const meetings = (await getPrisma().meeting.findMany({
+    where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -179,9 +183,10 @@ export async function listMeetings() {
   return meetings.map(formatMeeting);
 }
 
-export async function getMeetingById(id: string) {
-  const meeting = (await getPrisma().meeting.findUnique({
-    where: { id },
+export async function getMeetingById(id: string, username = DEFAULT_USERNAME) {
+  const user = await getOrCreateUser(username);
+  const meeting = (await getPrisma().meeting.findFirst({
+    where: { id, userId: user.id },
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
       actionItems: { orderBy: { createdAt: "asc" } },

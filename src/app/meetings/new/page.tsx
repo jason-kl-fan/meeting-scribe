@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Mic, Upload, Clock3, Loader2, Square, Pause, Play, FileAudio, Sparkles } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
+import { RequireAuth } from "@/components/require-auth";
 
 type AnalysisResult = {
   meetingId?: string;
@@ -479,20 +481,21 @@ export default function NewMeetingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-white lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div>
-          <p className="text-sm text-cyan-300">New Meeting</p>
-          <h1 className="mt-2 text-4xl font-bold">Create a new meeting</h1>
-          <p className="mt-4 max-w-3xl text-slate-300">
-            This MVP can now transcribe while recording by uploading a short audio chunk every 15 seconds,
-            then generate the final summary after you stop. Long recordings are still protected by 2-minute
-            rolling segments. For production use, remember to set
-            <code className="mx-1 rounded bg-white/10 px-2 py-1 text-cyan-200">OPENAI_API_KEY</code> in Vercel.
-          </p>
-        </div>
+    <RequireAuth>
+      <AppShell>
+        <div className="mx-auto max-w-6xl space-y-8 px-6 py-12 lg:px-8">
+          <div>
+            <p className="text-sm text-cyan-300">New Meeting</p>
+            <h1 className="mt-2 text-4xl font-bold">Create a new meeting</h1>
+            <p className="mt-4 max-w-3xl text-slate-300">
+              This MVP can now transcribe while recording by uploading a short audio chunk every 15 seconds,
+              then generate the final summary after you stop. Long recordings are still protected by 2-minute
+              rolling segments. For production use, remember to set
+              <code className="mx-1 rounded bg-white/10 px-2 py-1 text-cyan-200">OPENAI_API_KEY</code> in Vercel.
+            </p>
+          </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <div className="mb-4 flex items-center gap-3">
               <Mic className="h-7 w-7 text-cyan-300" />
@@ -643,54 +646,55 @@ export default function NewMeetingPage() {
           ) : null}
         </section>
 
-        {result ? (
-          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <h2 className="mb-5 text-2xl font-semibold">Transcript</h2>
-              <div className="space-y-4">
-                {result.transcript.map((item, index) => (
-                  <article key={`${item.time}-${index}`} className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-                    <div className="mb-2 flex items-center justify-between text-sm text-slate-400">
-                      <span className="font-medium text-cyan-300">{item.speaker}</span>
-                      <span>{item.time}</span>
-                    </div>
-                    <p className="leading-7 text-slate-100">{item.text}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <aside className="space-y-6">
+          {result ? (
+            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
               <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h2 className="mb-4 text-2xl font-semibold">Meeting summary</h2>
-                <p className="leading-8 text-slate-200">{result.summary}</p>
-              </section>
-
-              <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h3 className="mb-4 text-xl font-semibold">Key points</h3>
-                <ul className="space-y-3 text-slate-200">
-                  {result.keyPoints.map((point) => (
-                    <li key={point} className="rounded-2xl bg-slate-950/50 px-4 py-3">
-                      {point}
-                    </li>
+                <h2 className="mb-5 text-2xl font-semibold">Transcript</h2>
+                <div className="space-y-4">
+                  {result.transcript.map((item, index) => (
+                    <article key={`${item.time}-${index}`} className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                      <div className="mb-2 flex items-center justify-between text-sm text-slate-400">
+                        <span className="font-medium text-cyan-300">{item.speaker}</span>
+                        <span>{item.time}</span>
+                      </div>
+                      <p className="leading-7 text-slate-100">{item.text}</p>
+                    </article>
                   ))}
-                </ul>
+                </div>
               </section>
 
-              <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h3 className="mb-4 text-xl font-semibold">Action items</h3>
-                <ul className="space-y-3 text-slate-200">
-                  {result.actions.map((action) => (
-                    <li key={action} className="rounded-2xl bg-slate-950/50 px-4 py-3">
-                      {action}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </aside>
-          </div>
-        ) : null}
-      </div>
-    </main>
+              <aside className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <h2 className="mb-4 text-2xl font-semibold">Meeting summary</h2>
+                  <p className="leading-8 text-slate-200">{result.summary}</p>
+                </section>
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <h3 className="mb-4 text-xl font-semibold">Key points</h3>
+                  <ul className="space-y-3 text-slate-200">
+                    {result.keyPoints.map((point) => (
+                      <li key={point} className="rounded-2xl bg-slate-950/50 px-4 py-3">
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <h3 className="mb-4 text-xl font-semibold">Action items</h3>
+                  <ul className="space-y-3 text-slate-200">
+                    {result.actions.map((action) => (
+                      <li key={action} className="rounded-2xl bg-slate-950/50 px-4 py-3">
+                        {action}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          ) : null}
+        </div>
+      </AppShell>
+    </RequireAuth>
   );
 }

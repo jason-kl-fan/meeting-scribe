@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { getMeetingById } from "@/lib/meeting-db";
+import { getRequestUser } from "@/lib/request-user";
 
 export const runtime = "nodejs";
 
-export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const user = getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "未登入" }, { status: 401 });
+    }
+
     const { id } = await context.params;
-    const meeting = await getMeetingById(id);
+    const meeting = await getMeetingById(id, user.username);
 
     if (!meeting) {
       return NextResponse.json({ error: "找不到會議" }, { status: 404 });

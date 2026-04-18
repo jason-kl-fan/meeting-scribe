@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { persistMeeting } from "@/lib/meeting-db";
+import { getRequestUser } from "@/lib/request-user";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,11 @@ function createFallbackSummary(transcript: string) {
 
 export async function POST(request: Request) {
   try {
+    const user = getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "未登入" }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const audio = formData.get("audio");
     const transcriptOverride = formData.get("transcriptText");
@@ -139,6 +145,7 @@ export async function POST(request: Request) {
       }
 
       const savedMeeting = await persistMeeting({
+        username: user.username,
         title: `Meeting ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
         sourceLabel: "Recorded in browser",
         durationSeconds: transcript.length * 15,
@@ -269,6 +276,7 @@ export async function POST(request: Request) {
     }
 
     const savedMeeting = await persistMeeting({
+      username: user.username,
       title: audio.name ? audio.name.replace(/\.[^.]+$/, "") : `Meeting ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
       sourceLabel: audio.name ? "Uploaded audio" : "Recorded in browser",
       durationSeconds: transcript.length * 15,
